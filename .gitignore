@@ -1,0 +1,14 @@
+# Build outputs
+src/bin/
+src/obj/
+
+# VS files
+.vs/
+*.user
+*.suo
+
+# Packages
+*.nupkg
+
+# Claude memory
+.claude/

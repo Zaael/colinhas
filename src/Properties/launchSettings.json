@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Colinhas (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Colinhas (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
