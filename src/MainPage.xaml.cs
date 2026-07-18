@@ -107,6 +107,9 @@ public sealed partial class MainPage : Page
 
     private void AddTemplate_Click(object sender, RoutedEventArgs e) => _ = EditTemplateAsync(null);
 
+    private async void BuyMeCoffee_Click(object sender, RoutedEventArgs e)
+        => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://buymeacoffee.com/zaael"));
+
     private async Task UseTemplateAsync(TextTemplate template)
     {
         // No placeholders? Copy straight away.

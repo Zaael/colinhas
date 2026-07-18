@@ -26,15 +26,30 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!--  Tab switcher  -->
-        <SelectorBar
-            x:Name="ViewSelector"
-            Grid.Row="0"
-            Margin="8,6"
-            SelectionChanged="ViewSelector_SelectionChanged">
-            <SelectorBarItem x:Name="TabHistory" IsSelected="True" Text="Histórico" />
-            <SelectorBarItem x:Name="TabTemplates" Text="Templates" />
-        </SelectorBar>
+        <!--  Tab switcher + support button  -->
+        <Grid Grid.Row="0" Margin="8,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <SelectorBar
+                x:Name="ViewSelector"
+                Grid.Column="0"
+                SelectionChanged="ViewSelector_SelectionChanged">
+                <SelectorBarItem x:Name="TabHistory" IsSelected="True" Text="Histórico" />
+                <SelectorBarItem x:Name="TabTemplates" Text="Templates" />
+            </SelectorBar>
+
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Click="BuyMeCoffee_Click"
+                Style="{StaticResource SubtleButtonStyle}"
+                ToolTipService.ToolTip="Apoie o projeto ☕">
+                <TextBlock FontSize="16" Text="☕" />
+            </Button>
+        </Grid>
 
         <!--  ============ HISTÓRICO ============  -->
         <Grid x:Name="HistoryPanel" Grid.Row="1">
