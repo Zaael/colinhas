@@ -1,16 +1,24 @@
 using System.Collections.Specialized;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Colinhas.Models;
 using Colinhas.Services;
 using Colinhas.ViewModels;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace Colinhas;
 
 public sealed partial class MainPage : Page
 {
+    private const int TemplateHotkeyBaseId = 0x1000;
+
     public MainPageViewModel ViewModel { get; } = new();
     public TemplatesViewModel TemplatesVM { get; } = new();
+
+    private readonly List<int> _templateHotkeyIds = [];
 
     public MainPage()
     {
@@ -34,6 +42,9 @@ public sealed partial class MainPage : Page
         // Wire template action buttons as templates come in, then load them.
         TemplatesVM.Templates.CollectionChanged += Templates_CollectionChanged;
         TemplatesVM.Load();
+
+        // Register the global hotkeys for templates that have one.
+        SyncTemplateHotkeys();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) => ViewModel.Dispose();
@@ -170,15 +181,55 @@ public sealed partial class MainPage : Page
             TextWrapping = TextWrapping.Wrap,
         };
 
+        // Global hotkey capture (optional). Local state, updated by the key handler.
+        var hotkeyMods = existing?.HotkeyModifiers ?? 0;
+        var hotkeyKey = existing?.HotkeyKey ?? 0;
+
+        var hotkeyBox = new TextBox
+        {
+            Header = "Atalho global (opcional)",
+            Text = hotkeyKey != 0 ? HotkeyFormatter.Format(hotkeyMods, hotkeyKey) : string.Empty,
+            PlaceholderText = "Clique aqui e pressione as teclas (ex: Ctrl+Alt+1)",
+            IsReadOnly = true,
+        };
+        hotkeyBox.KeyDown += (_, e) =>
+        {
+            e.Handled = true;
+            var vk = e.Key;
+            if (vk is VirtualKey.Control or VirtualKey.Shift or VirtualKey.Menu
+                or VirtualKey.LeftWindows or VirtualKey.RightWindows)
+                return; // wait for a non-modifier key
+
+            var mods = 0;
+            if (IsDown(VirtualKey.Control)) mods |= (int)GlobalHotkeys.MOD_CONTROL;
+            if (IsDown(VirtualKey.Menu)) mods |= (int)GlobalHotkeys.MOD_ALT;
+            if (IsDown(VirtualKey.Shift)) mods |= (int)GlobalHotkeys.MOD_SHIFT;
+            if (mods == 0) return; // require at least one modifier
+
+            hotkeyMods = mods;
+            hotkeyKey = (int)vk;
+            hotkeyBox.Text = HotkeyFormatter.Format(mods, (int)vk);
+        };
+
+        var clearHotkey = new HyperlinkButton { Content = "Limpar atalho" };
+        clearHotkey.Click += (_, _) =>
+        {
+            hotkeyMods = 0;
+            hotkeyKey = 0;
+            hotkeyBox.Text = string.Empty;
+        };
+
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(titleBox);
         panel.Children.Add(contentBox);
         panel.Children.Add(hint);
+        panel.Children.Add(hotkeyBox);
+        panel.Children.Add(clearHotkey);
 
         var dialog = new ContentDialog
         {
             Title = existing is null ? "Novo template" : "Editar template",
-            Content = panel,
+            Content = new ScrollViewer { Content = panel },
             PrimaryButtonText = "Salvar",
             CloseButtonText = "Cancelar",
             DefaultButton = ContentDialogButton.Primary,
@@ -191,14 +242,24 @@ public sealed partial class MainPage : Page
 
         if (existing is null)
         {
-            TemplatesVM.Add(new TextTemplate { Title = title, Content = contentBox.Text });
+            TemplatesVM.Add(new TextTemplate
+            {
+                Title = title,
+                Content = contentBox.Text,
+                HotkeyModifiers = hotkeyMods,
+                HotkeyKey = hotkeyKey,
+            });
         }
         else
         {
             existing.Title = title;
             existing.Content = contentBox.Text;
+            existing.HotkeyModifiers = hotkeyMods;
+            existing.HotkeyKey = hotkeyKey;
             TemplatesVM.Persist();
         }
+
+        SyncTemplateHotkeys();
     }
 
     private async Task DeleteTemplateAsync(TextTemplate template)
@@ -214,6 +275,52 @@ public sealed partial class MainPage : Page
         };
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
             TemplatesVM.Delete(template);
+            SyncTemplateHotkeys();
+        }
     }
+
+    // ---------- Template global hotkeys ----------
+
+    /// <summary>Re-registers all template hotkeys to match the current templates.</summary>
+    private void SyncTemplateHotkeys()
+    {
+        if (App.Hotkeys is null) return;
+
+        foreach (var id in _templateHotkeyIds)
+            App.Hotkeys.Unregister(id);
+        _templateHotkeyIds.Clear();
+
+        var id2 = TemplateHotkeyBaseId;
+        foreach (var template in TemplatesVM.Templates)
+        {
+            if (!template.HasHotkey) continue;
+
+            var captured = template;
+            var thisId = id2++;
+            var ok = App.Hotkeys.Register(
+                thisId,
+                (uint)captured.HotkeyModifiers,
+                (uint)captured.HotkeyKey,
+                () => App.DispatcherQueue.TryEnqueue(() => OnTemplateHotkey(captured)));
+
+            if (ok)
+                _templateHotkeyIds.Add(thisId);
+            else
+                Logger.Log($"Template hotkey conflito: '{captured.Title}' {captured.HotkeyLabel}");
+        }
+    }
+
+    private void OnTemplateHotkey(TextTemplate template)
+    {
+        // Placeholders need the fill dialog, so bring the window forward first.
+        if (template.HasPlaceholders)
+            (App.Window as MainWindow)?.ShowAndFocus();
+
+        _ = UseTemplateAsync(template);
+    }
+
+    private static bool IsDown(VirtualKey key) =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(CoreVirtualKeyStates.Down);
 }

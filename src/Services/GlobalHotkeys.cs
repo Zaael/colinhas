@@ -3,54 +3,64 @@ using System.Runtime.InteropServices;
 namespace Colinhas.Services;
 
 /// <summary>
-/// Registers a global hotkey (Ctrl+\) via the Win32 <c>RegisterHotKey</c> API and
-/// raises a callback when it's pressed. Works system-wide, even when our window is
-/// hidden in the background. Listens for <c>WM_HOTKEY</c> by subclassing the window.
+/// Central registry for global hotkeys via the Win32 <c>RegisterHotKey</c> API.
+/// Subclasses the window once and dispatches <c>WM_HOTKEY</c> messages to the
+/// callback registered for each hotkey id. Works system-wide, even in background.
 /// </summary>
-public sealed class HotkeyManager : IDisposable
+public sealed class GlobalHotkeys : IDisposable
 {
+    public const uint MOD_ALT = 0x0001;
+    public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT = 0x0004;
+    public const uint MOD_WIN = 0x0008;
+    private const uint MOD_NOREPEAT = 0x4000;
+
     private const int WM_HOTKEY = 0x0312;
     private const uint SubclassId = 2;
 
-    private const uint MOD_CONTROL = 0x0002;
-    private const uint MOD_NOREPEAT = 0x4000;
-
-    // The "\" key sends a different virtual-key depending on the keyboard layout,
-    // so we register Ctrl + each candidate. All map to the same toggle action.
-    private static readonly (int Id, uint Vk, string Name)[] Candidates =
-    [
-        (0xC01, 0xDC, "VK_OEM_5"),    // "\|" above Enter — US / most layouts
-        (0xC02, 0xE2, "VK_OEM_102"),  // "\|" between LShift and Z — ABNT2 (Brazilian)
-    ];
-
     private readonly nint _hwnd;
     private readonly SubclassProcDelegate _subclassProc; // kept alive against GC
-    private readonly Action _onHotkey;
+    private readonly Dictionary<int, Action> _handlers = [];
     private bool _disposed;
 
-    public HotkeyManager(nint hwnd, Action onHotkey)
+    public GlobalHotkeys(nint hwnd)
     {
         _hwnd = hwnd;
-        _onHotkey = onHotkey;
         _subclassProc = WndProc;
-
         SetWindowSubclass(_hwnd, _subclassProc, SubclassId, 0);
+    }
 
-        foreach (var (id, vk, name) in Candidates)
+    /// <summary>
+    /// Registers (or re-registers) a hotkey. Returns false if the combo is already
+    /// taken by another app or is otherwise rejected by Windows.
+    /// </summary>
+    public bool Register(int id, uint modifiers, uint virtualKey, Action callback)
+    {
+        // Drop any previous registration for this id first.
+        Unregister(id);
+
+        if (!RegisterHotKey(_hwnd, id, modifiers | MOD_NOREPEAT, virtualKey))
         {
-            if (RegisterHotKey(_hwnd, id, MOD_CONTROL | MOD_NOREPEAT, vk))
-                Logger.Log($"HotkeyManager: Ctrl+\\ registered ({name})");
-            else
-                Logger.Log($"HotkeyManager: RegisterHotKey {name} FAILED (err {Marshal.GetLastWin32Error()})");
+            Logger.Log($"GlobalHotkeys: register id {id} FAILED (err {Marshal.GetLastWin32Error()})");
+            return false;
         }
+
+        _handlers[id] = callback;
+        return true;
+    }
+
+    public void Unregister(int id)
+    {
+        if (_handlers.Remove(id))
+            UnregisterHotKey(_hwnd, id);
     }
 
     private nint WndProc(nint hWnd, uint msg, nint wParam, nint lParam, nint id, nint data)
     {
-        if (msg == WM_HOTKEY && Candidates.Any(c => c.Id == (int)wParam))
+        if (msg == WM_HOTKEY && _handlers.TryGetValue((int)wParam, out var callback))
         {
-            Logger.Log($"WM_HOTKEY pressed (id 0x{(int)wParam:X})");
-            _onHotkey();
+            Logger.Log($"WM_HOTKEY id 0x{(int)wParam:X}");
+            callback();
         }
 
         return DefSubclassProc(hWnd, msg, wParam, lParam);
@@ -60,8 +70,11 @@ public sealed class HotkeyManager : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        foreach (var (id, _, _) in Candidates)
+
+        foreach (var id in _handlers.Keys)
             UnregisterHotKey(_hwnd, id);
+        _handlers.Clear();
+
         RemoveWindowSubclass(_hwnd, _subclassProc, SubclassId);
     }
 

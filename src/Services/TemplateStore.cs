@@ -16,7 +16,7 @@ public sealed class TemplateStore
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
-    private sealed record TemplateDto(Guid Id, string Title, string Content);
+    private sealed record TemplateDto(Guid Id, string Title, string Content, int HotkeyModifiers = 0, int HotkeyKey = 0);
 
     public List<TextTemplate> Load()
     {
@@ -31,7 +31,14 @@ public sealed class TemplateStore
                 return DefaultTemplates();
 
             return dtos
-                .Select(d => new TextTemplate { Id = d.Id, Title = d.Title, Content = d.Content })
+                .Select(d => new TextTemplate
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    Content = d.Content,
+                    HotkeyModifiers = d.HotkeyModifiers,
+                    HotkeyKey = d.HotkeyKey,
+                })
                 .ToList();
         }
         catch (Exception ex)
@@ -46,7 +53,9 @@ public sealed class TemplateStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            var dtos = templates.Select(t => new TemplateDto(t.Id, t.Title, t.Content)).ToList();
+            var dtos = templates
+                .Select(t => new TemplateDto(t.Id, t.Title, t.Content, t.HotkeyModifiers, t.HotkeyKey))
+                .ToList();
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dtos, Options));
         }
         catch (Exception ex)

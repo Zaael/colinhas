@@ -12,9 +12,12 @@ namespace Colinhas;
 
 public sealed partial class MainWindow : Window
 {
+    private const uint VK_OEM_5 = 0xDC;   // "\|" above Enter (US layouts)
+    private const uint VK_OEM_102 = 0xE2; // "\|" between LShift and Z (ABNT2)
+
     private readonly nint _hwnd;
     private readonly AppWindow _appWindow;
-    private HotkeyManager? _hotkey;
+    private GlobalHotkeys? _hotkeys;
     private TaskbarIcon? _trayIcon;
     private bool _isExiting;
 
@@ -37,7 +40,13 @@ public sealed partial class MainWindow : Window
         SetupWindowStyle();
         SetupTray();
 
-        _hotkey = new HotkeyManager(_hwnd, ToggleVisibility);
+        // Global hotkeys: expose the registry app-wide and register Ctrl+\ (both
+        // key codes so it works on US and ABNT2 layouts) to toggle the window.
+        _hotkeys = new GlobalHotkeys(_hwnd);
+        App.Hotkeys = _hotkeys;
+        _hotkeys.Register(0xC01, GlobalHotkeys.MOD_CONTROL, VK_OEM_5, ToggleVisibility);
+        _hotkeys.Register(0xC02, GlobalHotkeys.MOD_CONTROL, VK_OEM_102, ToggleVisibility);
+
         _appWindow.Closing += OnClosing;
     }
 
@@ -98,7 +107,8 @@ public sealed partial class MainWindow : Window
             ShowAndFocus();
     }
 
-    private void ShowAndFocus()
+    /// <summary>Brings the window to the foreground (used by hotkeys/tray).</summary>
+    public void ShowAndFocus()
     {
         PositionBottomRight(GetDpiForWindow(_hwnd) / 96.0);
         _appWindow.Show();
@@ -120,7 +130,7 @@ public sealed partial class MainWindow : Window
     private void ExitApp()
     {
         _isExiting = true;
-        _hotkey?.Dispose();
+        _hotkeys?.Dispose();
         _trayIcon?.Dispose();
         Application.Current.Exit();
     }

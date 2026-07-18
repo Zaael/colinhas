@@ -16,7 +16,21 @@ public partial class TextTemplate : ObservableObject
     [ObservableProperty]
     public partial string Content { get; set; } = string.Empty;
 
+    /// <summary>Global hotkey modifiers (MOD_* bit flags). 0 = no hotkey.</summary>
+    [ObservableProperty]
+    public partial int HotkeyModifiers { get; set; }
+
+    /// <summary>Global hotkey virtual-key. 0 = no hotkey.</summary>
+    [ObservableProperty]
+    public partial int HotkeyKey { get; set; }
+
     // --- UI helpers (not persisted) ---
+
+    [JsonIgnore]
+    public bool HasHotkey => HotkeyKey != 0;
+
+    [JsonIgnore]
+    public string HotkeyLabel => HotkeyFormatter.Format(HotkeyModifiers, HotkeyKey);
 
     [JsonIgnore]
     public string Preview => Content.Length > 120 ? Content[..120] + "…" : Content;
@@ -42,6 +56,14 @@ public partial class TextTemplate : ObservableObject
         OnPropertyChanged(nameof(Placeholders));
         OnPropertyChanged(nameof(HasPlaceholders));
         OnPropertyChanged(nameof(PlaceholderLabel));
+    }
+
+    partial void OnHotkeyModifiersChanged(int value) => OnPropertyChanged(nameof(HotkeyLabel));
+
+    partial void OnHotkeyKeyChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasHotkey));
+        OnPropertyChanged(nameof(HotkeyLabel));
     }
 
     [RelayCommand]

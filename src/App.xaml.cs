@@ -37,6 +37,12 @@ public partial class App : Application
         WinRT.Interop.WindowNative.GetWindowHandle(Window);
 
     /// <summary>
+    /// The global hotkey registry. Set by <see cref="MainWindow"/> once the window
+    /// handle exists. Use it to register/unregister system-wide hotkeys.
+    /// </summary>
+    public static Colinhas.Services.GlobalHotkeys Hotkeys { get; internal set; } = null!;
+
+    /// <summary>
     /// Initializes the singleton application object.
     /// </summary>
     public App()
