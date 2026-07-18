@@ -42,6 +42,26 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+
+        // Global crash logging. Packaged apps launched via `dotnet run` don't show
+        // exceptions anywhere, so we capture them to the log file for debugging.
+        UnhandledException += (_, e) =>
+        {
+            Colinhas.Services.Logger.Log($"UNHANDLED (XAML): {e.Message}\n{e.Exception}");
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            Colinhas.Services.Logger.Log($"UNHANDLED (AppDomain): {e.ExceptionObject}");
+        };
+
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Colinhas.Services.Logger.Log($"UNOBSERVED (Task): {e.Exception}");
+            e.SetObserved();
+        };
+
+        Colinhas.Services.Logger.Log("App() constructed");
     }
 
     /// <summary>

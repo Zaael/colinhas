@@ -3,10 +3,16 @@
     x:Class="Colinhas.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conv="using:Colinhas.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Colinhas.Models"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:BoolToVisibilityConverter x:Key="InverseBoolToVisibility" Invert="True" />
+    </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -52,13 +58,13 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <!--  Text preview  -->
+                        <!--  Pinned indicator + text preview  -->
                         <TextBlock
                             Grid.Row="0"
                             Grid.Column="0"
                             MaxLines="2"
                             Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind Preview}"
+                            Text="{x:Bind Display, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
 
                         <!--  Timestamp  -->
@@ -69,7 +75,7 @@
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind TimeLabel}" />
 
-                        <!--  Action buttons (shown on hover via VisualStateManager)  -->
+                        <!--  Action buttons  -->
                         <StackPanel
                             Grid.Row="0"
                             Grid.RowSpan="2"
@@ -85,6 +91,14 @@
                                 ToolTipService.ToolTip="Copiar para área de transferência">
                                 <FontIcon FontSize="14" Glyph="&#xE8C8;" />
                             </Button>
+
+                            <!--  Hide / show content (privacy)  -->
+                            <ToggleButton
+                                IsChecked="{x:Bind IsHidden, Mode=TwoWay}"
+                                Style="{StaticResource SubtleToggleButtonStyle}"
+                                ToolTipService.ToolTip="Ocultar/mostrar conteúdo">
+                                <FontIcon FontSize="14" Glyph="&#xE7B3;" />
+                            </ToggleButton>
 
                             <!--  Pin / Unpin  -->
                             <ToggleButton
@@ -106,37 +120,38 @@
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
-
-            <!--  Empty state  -->
-            <ListView.Footer>
-                <Grid x:Name="EmptyState" Padding="24,40">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <FontIcon
-                            HorizontalAlignment="Center"
-                            FontSize="40"
-                            Glyph="&#xE8C8;"
-                            Opacity="0.3" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Opacity="0.5"
-                            Style="{StaticResource BodyTextBlockStyle}"
-                            Text="Nada copiado ainda" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Opacity="0.4"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="Copie qualquer texto para começar" />
-                    </StackPanel>
-                </Grid>
-            </ListView.Footer>
         </ListView>
+
+        <!--  Empty state (only visible when there are no items)  -->
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+            <FontIcon
+                HorizontalAlignment="Center"
+                FontSize="40"
+                Glyph="&#xE8C8;"
+                Opacity="0.3" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Opacity="0.5"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="Nada copiado ainda" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Opacity="0.4"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Copie qualquer texto para começar" />
+        </StackPanel>
 
         <!--  Footer  -->
         <Border
             Grid.Row="2"
+            Padding="12,8"
             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-            BorderThickness="0,1,0,0"
-            Padding="12,8">
+            BorderThickness="0,1,0,0">
             <Button
                 HorizontalAlignment="Right"
                 Command="{x:Bind ViewModel.ClearHistoryCommand}"

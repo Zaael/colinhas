@@ -32,6 +32,17 @@
   </ItemGroup>
 
   <!--
+    Compile the loose ResourceDictionary so it is embedded in the package and
+    reachable via ms-appx:///Styles/ControlsStyles.xaml. Pure ResourceDictionaries
+    (no x:Class) are not always picked up by the default XAML glob.
+  -->
+  <ItemGroup>
+    <Page Update="Styles\ControlsStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <!--
     Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
     Tools extension to be activated for this project even if the Windows App SDK Nuget
     package has not yet been restored.
