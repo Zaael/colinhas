@@ -13,7 +13,9 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
 {
     private const int MaxUnpinned = 50;
 
+    private readonly HistoryStore _historyStore = new();
     private ClipboardMonitor? _clipboardMonitor;
+    private bool _suppressSave;
 
     /// <summary>The full history. UI binds to <see cref="FilteredItems"/> instead.</summary>
     public ObservableCollection<ClipboardEntry> Items { get; } = [];
@@ -62,14 +64,37 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
         _clipboardMonitor = new ClipboardMonitor(windowHandle);
         _clipboardMonitor.TextCaptured += AddFromClipboard;
 
-        // Pull in whatever is already in the Windows clipboard history (Win+V).
+        // Load our own saved history first, then merge the Windows clipboard
+        // history (Win+V). Saving is suppressed until the merge finishes.
+        _suppressSave = true;
+        LoadPersistedHistory();
         _ = LoadWindowsHistoryAsync();
+    }
+
+    private void LoadPersistedHistory()
+    {
+        foreach (var s in _historyStore.Load())
+        {
+            var entry = CreateEntry(s.Text, s.CopiedAt);
+            entry.IsPinned = s.IsPinned;
+            entry.IsHidden = s.IsHidden;
+            entry.Label = s.Label;
+            Items.Add(entry);
+        }
+        Logger.Log($"Persisted history loaded: {Items.Count} itens");
+    }
+
+    private void SaveHistory()
+    {
+        if (_suppressSave) return;
+        _historyStore.Save(Items);
     }
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(IsEmpty));
         ApplyFilter();
+        SaveHistory();
     }
 
     /// <summary>Number of pinned items — pinned always occupy the top slots.</summary>
@@ -90,7 +115,8 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
             if (result.Status != ClipboardHistoryItemsResultStatus.Success)
                 return;
 
-            // result.Items comes most-recent-first; appending preserves that order.
+            // Collect Win+V texts not already in our (persisted) history.
+            var newOnes = new List<(string Text, DateTime When)>();
             foreach (var item in result.Items)
             {
                 if (!item.Content.Contains(StandardDataFormats.Text)) continue;
@@ -101,13 +127,27 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
 
                 if (string.IsNullOrWhiteSpace(text)) continue;
                 if (Items.Any(i => i.Text == text)) continue;
+                if (newOnes.Any(n => n.Text == text)) continue;
 
-                Items.Add(CreateEntry(text, item.Timestamp.LocalDateTime));
+                newOnes.Add((text, item.Timestamp.LocalDateTime));
             }
+
+            // result.Items is newest-first; insert oldest-first at the top of the
+            // unpinned block so the most recent ends up highest.
+            for (var k = newOnes.Count - 1; k >= 0; k--)
+                Items.Insert(PinnedCount, CreateEntry(newOnes[k].Text, newOnes[k].When));
+
+            TrimUnpinned();
         }
         catch (Exception ex)
         {
             Logger.Log($"LoadWindowsHistory error: {ex.Message}");
+        }
+        finally
+        {
+            // Merge done — enable persistence and write the current state once.
+            _suppressSave = false;
+            SaveHistory();
         }
     }
 
@@ -156,8 +196,17 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
 
     private void OnEntryPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ClipboardEntry.IsPinned) && sender is ClipboardEntry entry)
+        if (sender is not ClipboardEntry entry) return;
+
+        if (e.PropertyName == nameof(ClipboardEntry.IsPinned))
             Reposition(entry);
+
+        if (e.PropertyName is nameof(ClipboardEntry.IsPinned)
+            or nameof(ClipboardEntry.IsHidden)
+            or nameof(ClipboardEntry.Label))
+        {
+            SaveHistory();
+        }
     }
 
     /// <summary>
