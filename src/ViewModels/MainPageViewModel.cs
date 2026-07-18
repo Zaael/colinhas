@@ -15,17 +15,45 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
 
     private ClipboardMonitor? _clipboardMonitor;
 
+    /// <summary>The full history. UI binds to <see cref="FilteredItems"/> instead.</summary>
     public ObservableCollection<ClipboardEntry> Items { get; } = [];
+
+    /// <summary>The history after applying <see cref="SearchText"/> — what the list shows.</summary>
+    public ObservableCollection<ClipboardEntry> FilteredItems { get; } = [];
 
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    /// <summary>True when there are no items — drives the empty-state visibility.</summary>
+    /// <summary>True when nothing has been copied yet.</summary>
     public bool IsEmpty => Items.Count == 0;
+
+    /// <summary>True when there are items but the search matched none of them.</summary>
+    public bool NoResults => Items.Count > 0 && FilteredItems.Count == 0;
 
     public MainPageViewModel()
     {
         Items.CollectionChanged += OnItemsChanged;
+    }
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        var query = SearchText?.Trim() ?? string.Empty;
+
+        FilteredItems.Clear();
+        foreach (var item in Items)
+        {
+            if (query.Length == 0
+                || item.Text.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || item.Label.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                FilteredItems.Add(item);
+            }
+        }
+
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(NoResults));
     }
 
     public void Initialize(nint windowHandle)
@@ -39,7 +67,10 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
     }
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => OnPropertyChanged(nameof(IsEmpty));
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        ApplyFilter();
+    }
 
     /// <summary>Number of pinned items — pinned always occupy the top slots.</summary>
     private int PinnedCount => Items.Count(i => i.IsPinned);
