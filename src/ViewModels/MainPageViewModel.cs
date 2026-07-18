@@ -117,6 +117,9 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
         Reposition(entry);
     }
 
+    /// <summary>Puts arbitrary text on the clipboard (used by templates).</summary>
+    public void CopyToClipboard(string text) => _clipboardMonitor?.SetText(text);
+
     private void OnEntryPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ClipboardEntry.IsPinned) && sender is ClipboardEntry entry)
