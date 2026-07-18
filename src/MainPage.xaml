@@ -53,6 +53,8 @@
 
             <ListView
                 Grid.Row="1"
+                IsItemClickEnabled="True"
+                ItemClick="HistoryList_ItemClick"
                 ItemContainerStyle="{StaticResource StretchItemStyle}"
                 ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
                 SelectionMode="None">
@@ -92,21 +94,21 @@
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind TimeLabel}" />
 
+                                <!--  Descrição/título do item (badge)  -->
                                 <Border
                                     Padding="6,1"
                                     VerticalAlignment="Center"
-                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
                                     CornerRadius="4"
-                                    Visibility="{x:Bind IsPinned, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                    Visibility="{x:Bind HasLabel, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <FontIcon
                                             FontSize="10"
-                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                            Glyph="&#xE718;" />
-                                        <TextBlock
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                            Text="Fixado" />
+                                            Glyph="&#xE8EC;"
+                                            Opacity="0.7" />
+                                        <TextBlock FontSize="11" Text="{x:Bind Label, Mode=OneWay}" />
                                     </StackPanel>
                                 </Border>
 
@@ -137,10 +139,10 @@
                                 Orientation="Horizontal"
                                 Spacing="2">
                                 <Button
-                                    Command="{x:Bind CopyCommand}"
+                                    Command="{x:Bind EditLabelCommand}"
                                     Style="{StaticResource SubtleButtonStyle}"
-                                    ToolTipService.ToolTip="Copiar">
-                                    <FontIcon FontSize="14" Glyph="&#xE8C8;" />
+                                    ToolTipService.ToolTip="Adicionar/editar descrição">
+                                    <FontIcon FontSize="14" Glyph="&#xE8EC;" />
                                 </Button>
                                 <ToggleButton
                                     IsChecked="{x:Bind IsHidden, Mode=TwoWay}"
@@ -253,15 +255,23 @@
                                 Grid.Row="2"
                                 Grid.Column="0"
                                 Margin="0,4,0,0"
-                                Padding="6,1"
+                                Padding="7,2"
                                 HorizontalAlignment="Left"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
                                 CornerRadius="4"
                                 Visibility="{x:Bind HasPlaceholders, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="{x:Bind PlaceholderLabel, Mode=OneWay}" />
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <FontIcon
+                                        FontSize="10"
+                                        Glyph="&#xE762;"
+                                        Opacity="0.6" />
+                                    <TextBlock
+                                        FontSize="11"
+                                        Opacity="0.8"
+                                        Text="{x:Bind PlaceholderLabel, Mode=OneWay}" />
+                                </StackPanel>
                             </Border>
 
                             <StackPanel

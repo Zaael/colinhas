@@ -29,7 +29,7 @@ public partial class TextTemplate : ObservableObject
 
     [JsonIgnore]
     public string PlaceholderLabel =>
-        HasPlaceholders ? string.Join(", ", Placeholders.Select(p => $"{{{p}}}")) : string.Empty;
+        HasPlaceholders ? string.Join(" · ", Placeholders) : string.Empty;
 
     // Callbacks wired by the view so the item buttons can trigger UI actions.
     [JsonIgnore] internal Action<TextTemplate>? OnUse { private get; set; }

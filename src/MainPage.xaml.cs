@@ -25,6 +25,10 @@ public sealed partial class MainPage : Page
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         Logger.Log("MainPage.Loaded");
+
+        // Wire the "edit label" action on history entries as they arrive
+        // (subscribe before Initialize so Win+V history items get wired too).
+        ViewModel.Items.CollectionChanged += HistoryItems_CollectionChanged;
         ViewModel.Initialize(App.WindowHandle);
 
         // Wire template action buttons as templates come in, then load them.
@@ -33,6 +37,45 @@ public sealed partial class MainPage : Page
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) => ViewModel.Dispose();
+
+    // ---------- History ----------
+
+    private void HistoryItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is null) return;
+        foreach (ClipboardEntry entry in e.NewItems)
+            entry.OnEditLabel = c => _ = EditLabelAsync(c);
+    }
+
+    private void HistoryList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ClipboardEntry entry)
+            ViewModel.CopyEntry(entry);
+    }
+
+    private async Task EditLabelAsync(ClipboardEntry entry)
+    {
+        var box = new TextBox
+        {
+            Header = "Descrição",
+            Text = entry.Label,
+            PlaceholderText = "Ex: API token access",
+            AcceptsReturn = false,
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = "Descrição do item",
+            Content = box,
+            PrimaryButtonText = "Salvar",
+            CloseButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            entry.Label = box.Text.Trim();
+    }
 
     // ---------- Tab switching ----------
 
