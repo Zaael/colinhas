@@ -60,6 +60,13 @@ public sealed class GlobalHotkeys : IDisposable
         if (msg == WM_HOTKEY && _handlers.TryGetValue((int)wParam, out var callback))
         {
             Logger.Log($"WM_HOTKEY id 0x{(int)wParam:X}");
+
+            // Remember the app that was focused when the hotkey fired, so "paste
+            // directly" can send the text back into it.
+            var foreground = GetForegroundWindow();
+            if (foreground != 0 && foreground != _hwnd)
+                App.PreviousForeground = foreground;
+
             callback();
         }
 
@@ -98,4 +105,7 @@ public sealed class GlobalHotkeys : IDisposable
 
     [DllImport("comctl32.dll")]
     private static extern nint DefSubclassProc(nint hWnd, uint msg, nint wParam, nint lParam);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
 }

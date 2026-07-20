@@ -85,10 +85,15 @@ public sealed partial class MainWindow : Window
         var open = new MenuFlyoutItem { Text = "Abrir" };
         open.Click += (_, _) => ShowAndFocus();
 
+        var pasteToggle = new ToggleMenuFlyoutItem { Text = "Colar direto", IsChecked = Settings.PasteDirectly };
+        pasteToggle.Click += (s, _) => Settings.PasteDirectly = ((ToggleMenuFlyoutItem)s).IsChecked;
+
         var exit = new MenuFlyoutItem { Text = "Sair" };
         exit.Click += (_, _) => ExitApp();
 
         menu.Items.Add(open);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(pasteToggle);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
         _trayIcon.ContextFlyout = menu;
@@ -117,6 +122,28 @@ public sealed partial class MainWindow : Window
     }
 
     private void HideToTray() => _appWindow.Hide();
+
+    /// <summary>Hides Colinhas and pastes (Ctrl+V) into the previously focused app.</summary>
+    public void PasteIntoPrevious()
+    {
+        var target = App.PreviousForeground;
+        App.PreviousForeground = 0; // consume it so a stale window isn't reused later
+        HideToTray();
+        if (target == 0) return;
+
+        SetForegroundWindow(target);
+
+        // Give focus a moment to settle before sending the keystroke.
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(90);
+        timer.IsRepeating = false;
+        timer.Tick += (s, _) =>
+        {
+            s.Stop();
+            InputSender.SendCtrlV();
+        };
+        timer.Start();
+    }
 
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {

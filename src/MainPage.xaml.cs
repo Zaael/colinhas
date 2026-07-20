@@ -61,7 +61,17 @@ public sealed partial class MainPage : Page
     private void HistoryList_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is ClipboardEntry entry)
+        {
             ViewModel.CopyEntry(entry);
+            TryPasteIntoPrevious();
+        }
+    }
+
+    /// <summary>If "paste directly" is on, sends the copied text into the previous app.</summary>
+    private void TryPasteIntoPrevious()
+    {
+        if (Settings.PasteDirectly)
+            (App.Window as MainWindow)?.PasteIntoPrevious();
     }
 
     private async Task EditLabelAsync(ClipboardEntry entry)
@@ -127,6 +137,7 @@ public sealed partial class MainPage : Page
         if (!template.HasPlaceholders)
         {
             ViewModel.CopyToClipboard(template.Content);
+            TryPasteIntoPrevious();
             return;
         }
 
@@ -154,6 +165,7 @@ public sealed partial class MainPage : Page
         var values = boxes.ToDictionary(kv => kv.Key, kv => kv.Value.Text);
         var filled = TemplateEngine.Fill(template.Content, values);
         ViewModel.CopyToClipboard(filled);
+        TryPasteIntoPrevious();
     }
 
     private async Task EditTemplateAsync(TextTemplate? existing)

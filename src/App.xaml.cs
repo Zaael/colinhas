@@ -43,6 +43,12 @@ public partial class App : Application
     public static Colinhas.Services.GlobalHotkeys Hotkeys { get; internal set; } = null!;
 
     /// <summary>
+    /// The window that had focus just before a Colinhas hotkey fired — i.e. the app
+    /// the user was in. Used by "paste directly" to send Ctrl+V back into it.
+    /// </summary>
+    public static nint PreviousForeground { get; set; }
+
+    /// <summary>
     /// Initializes the singleton application object.
     /// </summary>
     public App()
