@@ -141,13 +141,28 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        var boxes = new Dictionary<string, TextBox>();
+        // Offer values from the clipboard history (hidden items excluded for privacy).
+        var historyOptions = ViewModel.Items
+            .Where(i => !i.IsHidden)
+            .Select(i => i.Text)
+            .Distinct()
+            .Take(30)
+            .ToList();
+
+        var boxes = new Dictionary<string, ComboBox>();
         var panel = new StackPanel { Spacing = 10 };
         foreach (var name in template.Placeholders)
         {
-            var box = new TextBox { Header = name, PlaceholderText = $"Valor para {{{name}}}" };
-            boxes[name] = box;
-            panel.Children.Add(box);
+            var combo = new ComboBox
+            {
+                Header = name,
+                IsEditable = true,
+                ItemsSource = historyOptions,
+                PlaceholderText = $"Digite ou escolha do histórico",
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            boxes[name] = combo;
+            panel.Children.Add(combo);
         }
 
         var dialog = new ContentDialog
@@ -162,7 +177,11 @@ public sealed partial class MainPage : Page
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
-        var values = boxes.ToDictionary(kv => kv.Key, kv => kv.Value.Text);
+        var values = boxes.ToDictionary(
+            kv => kv.Key,
+            kv => !string.IsNullOrEmpty(kv.Value.Text)
+                ? kv.Value.Text
+                : kv.Value.SelectedItem as string ?? string.Empty);
         var filled = TemplateEngine.Fill(template.Content, values);
         ViewModel.CopyToClipboard(filled);
         TryPasteIntoPrevious();

@@ -97,8 +97,38 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
         SaveHistory();
     }
 
-    /// <summary>Number of pinned items — pinned always occupy the top slots.</summary>
-    private int PinnedCount => Items.Count(i => i.IsPinned);
+    /// <summary>
+    /// Ordering tier of an entry (lower = higher on the list):
+    /// 0 = fixado, 1 = com descrição, 2 = oculto, 3 = normal.
+    /// </summary>
+    private static int Rank(ClipboardEntry e) =>
+        e.IsPinned ? 0 : e.HasLabel ? 1 : e.IsHidden ? 2 : 3;
+
+    private static bool IsPlain(ClipboardEntry e) => Rank(e) == 3;
+
+    /// <summary>Inserts an entry at the top of its tier (most recent within the tier).</summary>
+    private void InsertSorted(ClipboardEntry entry)
+    {
+        var target = Items.Count(i => Rank(i) < Rank(entry));
+        Items.Insert(target, entry);
+    }
+
+    /// <summary>Re-orders the whole list by tier, keeping the current order within each tier.</summary>
+    private void ResortAll()
+    {
+        var sorted = Items
+            .Select((e, idx) => (e, idx))
+            .OrderBy(x => Rank(x.e))
+            .ThenBy(x => x.idx)
+            .Select(x => x.e)
+            .ToList();
+
+        for (var i = 0; i < sorted.Count; i++)
+        {
+            var current = Items.IndexOf(sorted[i]);
+            if (current != i) Items.Move(current, i);
+        }
+    }
 
     private async Task LoadWindowsHistoryAsync()
     {
@@ -133,11 +163,11 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
             }
 
             // result.Items is newest-first; insert oldest-first at the top of the
-            // unpinned block so the most recent ends up highest.
+            // normal tier so the most recent ends up highest.
             for (var k = newOnes.Count - 1; k >= 0; k--)
-                Items.Insert(PinnedCount, CreateEntry(newOnes[k].Text, newOnes[k].When));
+                InsertSorted(CreateEntry(newOnes[k].Text, newOnes[k].When));
 
-            TrimUnpinned();
+            TrimHistory();
         }
         catch (Exception ex)
         {
@@ -145,7 +175,9 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            // Merge done — enable persistence and write the current state once.
+            // Ensure the tiered order (old saved data may predate it), then
+            // enable persistence and write the current state once.
+            ResortAll();
             _suppressSave = false;
             SaveHistory();
         }
@@ -155,17 +187,17 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
     {
         App.DispatcherQueue.TryEnqueue(() =>
         {
-            // If it's already pinned, leave the pinned copy as-is.
-            if (Items.Any(i => i.Text == text && i.IsPinned)) return;
+            var match = Items.FirstOrDefault(i => i.Text == text);
+            if (match != null)
+            {
+                // Special items (fixado/tag/oculto) are kept as-is; a plain
+                // duplicate is removed so it re-bumps to the top of its tier.
+                if (!IsPlain(match)) return;
+                RemoveEntry(match);
+            }
 
-            // Replace an existing unpinned duplicate (so it bumps to the top).
-            var existing = Items.FirstOrDefault(i => i.Text == text && !i.IsPinned);
-            if (existing != null) RemoveEntry(existing);
-
-            // Insert at the top of the unpinned block (right below the pinned ones).
-            Items.Insert(PinnedCount, CreateEntry(text));
-
-            TrimUnpinned();
+            InsertSorted(CreateEntry(text));
+            TrimHistory();
         });
     }
 
@@ -198,38 +230,35 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
     {
         if (sender is not ClipboardEntry entry) return;
 
-        if (e.PropertyName == nameof(ClipboardEntry.IsPinned))
-            Reposition(entry);
-
+        // Pinning, tagging or hiding changes the entry's tier — reposition it.
         if (e.PropertyName is nameof(ClipboardEntry.IsPinned)
             or nameof(ClipboardEntry.IsHidden)
             or nameof(ClipboardEntry.Label))
         {
+            Reposition(entry);
             SaveHistory();
         }
     }
 
-    /// <summary>
-    /// Moves an entry to its correct slot: pinned items go to the very top,
-    /// unpinned items go just below the pinned block.
-    /// </summary>
+    /// <summary>Moves an entry to the top of its tier (fixado &gt; tag &gt; oculto &gt; normal).</summary>
     private void Reposition(ClipboardEntry entry)
     {
         var current = Items.IndexOf(entry);
         if (current < 0) return;
 
-        var target = entry.IsPinned ? 0 : Items.Count(i => i.IsPinned && i != entry);
+        var target = Items.Count(i => i != entry && Rank(i) < Rank(entry));
         if (target != current)
             Items.Move(current, target);
     }
 
-    private void TrimUnpinned()
+    /// <summary>Trims plain (non-special) items beyond the limit; keeps fixados/tags/ocultos.</summary>
+    private void TrimHistory()
     {
-        var unpinned = Items.Where(i => !i.IsPinned).ToList();
-        while (unpinned.Count > MaxUnpinned)
+        var plain = Items.Where(IsPlain).ToList();
+        while (plain.Count > MaxUnpinned)
         {
-            RemoveEntry(unpinned[^1]);
-            unpinned.RemoveAt(unpinned.Count - 1);
+            RemoveEntry(plain[^1]);
+            plain.RemoveAt(plain.Count - 1);
         }
     }
 
@@ -242,7 +271,8 @@ public partial class MainPageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ClearHistory()
     {
-        foreach (var item in Items.Where(i => !i.IsPinned).ToList())
+        // Keep the items the user marked as important (fixados, tags, ocultos).
+        foreach (var item in Items.Where(IsPlain).ToList())
             RemoveEntry(item);
     }
 
