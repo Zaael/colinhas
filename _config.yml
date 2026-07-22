@@ -1,0 +1,23 @@
+# Configuração do GitHub Pages (https://zaael.github.io/colinhas/).
+#
+# Existe por dois motivos: publicar o PRIVACY.md como página HTML de verdade
+# (a Microsoft Store exige uma URL de política de privacidade que abra no
+# navegador, não um arquivo .md para download) e dar uma landing page ao
+# projeto a partir do README.
+#
+# O GitHub Pages habilita o jekyll-optional-front-matter por padrão, então os
+# .md viram páginas sem precisar de front matter em cada arquivo.
+
+title: Colinhas
+description: >-
+  Gerenciador de área de transferência para Windows: histórico, itens fixados,
+  itens ocultos e templates de texto com campos.
+lang: pt-BR
+
+theme: jekyll-theme-cayman
+
+# O código não faz parte do site — sem isso o Jekyll copiaria a árvore inteira
+# (incluindo bin/ e obj/) para dentro da publicação.
+exclude:
+  - src/
+  - LICENSE
