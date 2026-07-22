@@ -8,16 +8,22 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap5 rescap">
 
+  <!--
+    Identidade da Microsoft Store (Partner Center > Identidade do produto).
+    Name e Publisher precisam bater exatamente com o que está lá, senão o
+    upload do pacote é recusado. Store ID: 9NSD3XDJHJ68.
+    A quarta parte da Version tem que ser 0 — a Store reserva o revision.
+  -->
   <Identity
-    Name="98BC38B7-6FFB-4261-BFC2-7A3D2B7BAE13"
-    Publisher="CN=AppPublisher"
+    Name="Zael.Colinhas"
+    Publisher="CN=B01541C2-FA2D-480B-8912-923CA057A37B"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="98BC38B7-6FFB-4261-BFC2-7A3D2B7BAE13" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Colinhas</DisplayName>
-    <PublisherDisplayName>AppPublisher</PublisherDisplayName>
+    <PublisherDisplayName>Zael</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
