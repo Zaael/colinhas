@@ -40,13 +40,24 @@
     <Application Id="App"
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
+      <!--
+        Os assets são gerados por tools\generate-icons.ps1 a partir do logo em
+        /logo. Aqui só aparecem os nomes-base: o Windows escolhe sozinho a
+        variante certa de escala (.scale-200) ou de tamanho (.targetsize-16).
+        BackgroundColor é o verde da marca, usado atrás do splash e onde o
+        Windows precisar emoldurar o ícone.
+      -->
       <uap:VisualElements
         DisplayName="Colinhas"
         Description="Gerenciador de área de transferência: histórico, itens fixados e templates de texto."
-        BackgroundColor="transparent"
+        BackgroundColor="#6C9A7A"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:DefaultTile
+          ShortName="Colinhas"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
 
