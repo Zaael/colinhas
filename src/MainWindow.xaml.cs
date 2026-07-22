@@ -88,18 +88,85 @@ public sealed partial class MainWindow : Window
         var pasteToggle = new ToggleMenuFlyoutItem { Text = "Colar direto", IsChecked = Settings.PasteDirectly };
         pasteToggle.Click += (s, _) => Settings.PasteDirectly = ((ToggleMenuFlyoutItem)s).IsChecked;
 
+        // O estado real do startup mora no Windows (não em Settings), então o
+        // ToggleMenuFlyoutItem nasce desmarcado e é sincronizado de forma assíncrona.
+        var startupToggle = new ToggleMenuFlyoutItem { Text = "Iniciar com o Windows" };
+        startupToggle.Click += async (s, _) => await OnStartupToggled((ToggleMenuFlyoutItem)s);
+        _ = SyncStartupToggle(startupToggle);
+
+        var tutorial = new MenuFlyoutItem { Text = "Tutorial" };
+        tutorial.Click += (_, _) => WelcomeWindow.ShowOrFocus();
+
         var exit = new MenuFlyoutItem { Text = "Sair" };
         exit.Click += (_, _) => ExitApp();
 
         menu.Items.Add(open);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(pasteToggle);
+        menu.Items.Add(startupToggle);
+        menu.Items.Add(tutorial);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
+        // O usuário pode ligar/desligar o startup pelo Gerenciador de Tarefas a
+        // qualquer momento, então revalidamos toda vez que o menu abre.
+        menu.Opening += (_, _) => _ = SyncStartupToggle(startupToggle);
+
         _trayIcon.ContextFlyout = menu;
 
         _trayIcon.ForceCreate();
         Logger.Log("Tray icon created");
+    }
+
+    // ---------- Iniciar com o Windows ----------
+
+    private static async Task SyncStartupToggle(ToggleMenuFlyoutItem item)
+    {
+        var state = await StartupService.GetStateAsync();
+        item.IsChecked = state is Windows.ApplicationModel.StartupTaskState.Enabled
+                              or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+
+        // Quando o Windows tira o controle do app, o menu vira apenas informativo.
+        var locked = state is Windows.ApplicationModel.StartupTaskState.DisabledByUser
+                          or Windows.ApplicationModel.StartupTaskState.DisabledByPolicy
+                          or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+        item.IsEnabled = !locked;
+    }
+
+    private async Task OnStartupToggled(ToggleMenuFlyoutItem item)
+    {
+        var wanted = item.IsChecked;
+        var state = await StartupService.SetEnabledAsync(wanted);
+
+        var applied = state is Windows.ApplicationModel.StartupTaskState.Enabled
+                           or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+        item.IsChecked = applied;
+
+        if (wanted && !applied)
+        {
+            item.IsEnabled = false;
+            await ShowMessage(
+                "Não foi possível ligar",
+                "O início automático do Colinhas foi desativado pelo Windows. " +
+                "Para religar, abra o Gerenciador de Tarefas → Aplicativos de inicialização, " +
+                "encontre \"Colinhas\" e escolha Habilitar.");
+        }
+    }
+
+    /// <summary>Mostra um aviso simples na janela principal (trazendo-a para frente).</summary>
+    private async Task ShowMessage(string title, string message)
+    {
+        ShowAndFocus();
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = message,
+            CloseButtonText = "Entendi",
+            XamlRoot = RootFrame.XamlRoot,
+        };
+
+        try { await dialog.ShowAsync(); }
+        catch (Exception ex) { Logger.Log($"ShowMessage falhou — {ex.Message}"); }
     }
 
     // ---------- Show / hide ----------
@@ -122,6 +189,17 @@ public sealed partial class MainWindow : Window
     }
 
     private void HideToTray() => _appWindow.Hide();
+
+    /// <summary>
+    /// Sobe direto para a bandeja, sem aparecer. Ativamos e escondemos em seguida
+    /// (em vez de nunca ativar) para o XAML já ficar carregado — assim o primeiro
+    /// Ctrl+\ abre instantâneo, sem o atraso da primeira renderização.
+    /// </summary>
+    public void StartHidden()
+    {
+        Activate();
+        _appWindow.Hide();
+    }
 
     /// <summary>Hides Colinhas and pastes (Ctrl+V) into the previously focused app.</summary>
     public void PasteIntoPrevious()

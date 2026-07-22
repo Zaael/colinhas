@@ -84,6 +84,40 @@ public partial class App : Application
     {
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+        if (LaunchedAtStartup())
+        {
+            // Subiu junto com o Windows: fica só na bandeja, sem roubar a tela do
+            // usuário no login. O Ctrl+\ e o monitor de clipboard já estão ativos.
+            Colinhas.Services.Logger.Log("Launch: startup task — iniciando oculto");
+            ((MainWindow)Window).StartHidden();
+            return;
+        }
+
         Window.Activate();
+
+        // Primeira execução: apresenta o app antes de largar o usuário sozinho
+        // com uma lista vazia.
+        if (!Colinhas.Services.Settings.HasSeenWelcome)
+            WelcomeWindow.ShowOrFocus();
+    }
+
+    /// <summary>
+    /// True quando o processo foi iniciado pelo "iniciar com o Windows" (a
+    /// extensão windows.startupTask do manifest), e não por clique do usuário.
+    /// </summary>
+    private static bool LaunchedAtStartup()
+    {
+        try
+        {
+            var kind = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent()
+                .GetActivatedEventArgs().Kind;
+            return kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask;
+        }
+        catch (Exception ex)
+        {
+            Colinhas.Services.Logger.Log($"LaunchedAtStartup falhou — {ex.Message}");
+            return false;
+        }
     }
 }

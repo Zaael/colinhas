@@ -13,4 +13,14 @@ public static class Settings
         get { try { return Local.Values["PasteDirectly"] as bool? ?? true; } catch { return true; } }
         set { try { Local.Values["PasteDirectly"] = value; } catch { } }
     }
+
+    /// <summary>
+    /// True once the welcome tutorial has been completed (or dismissed) — it only
+    /// opens by itself on the very first run.
+    /// </summary>
+    public static bool HasSeenWelcome
+    {
+        get { try { return Local.Values["HasSeenWelcome"] as bool? ?? false; } catch { return false; } }
+        set { try { Local.Values["HasSeenWelcome"] = value; } catch { } }
+    }
 }
