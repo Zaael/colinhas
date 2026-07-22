@@ -234,10 +234,41 @@ public sealed partial class MainWindow : Window
 
     private void ExitApp()
     {
+        if (_isExiting) return;
         _isExiting = true;
+        Logger.Log("Sair: encerrando o app");
+
+        // Soltar os ganchos Win32 antes de sair. Eles ficam registrados no
+        // Windows enquanto a janela existir: subclass do WndProc (hotkeys) e o
+        // listener de clipboard. O ViewModel só era liberado no Unloaded da
+        // página, que nunca dispara aqui — a janela é escondida, não fechada.
         _hotkeys?.Dispose();
+        (RootFrame.Content as MainPage)?.ViewModel.Dispose();
+
+        // O ícone precisa sumir da bandeja agora; senão fica o "fantasma" que só
+        // some quando o usuário passa o mouse por cima.
         _trayIcon?.Dispose();
+
+        // Uma segunda janela aberta (o tutorial) segura o app vivo.
+        WelcomeWindow.CloseIfOpen();
+
         Application.Current.Exit();
+
+        // Rede de segurança: com a janela principal escondida, o Application.Exit()
+        // do WinUI nem sempre derruba o processo — o loop de mensagens continua e o
+        // app fica só na lista de processos, sem ícone e sem janela. Se meio segundo
+        // depois ainda estivermos vivos, sai à força. Não há nada pendente para
+        // salvar: o histórico é gravado a cada alteração.
+        var failsafe = DispatcherQueue.CreateTimer();
+        failsafe.Interval = TimeSpan.FromMilliseconds(500);
+        failsafe.IsRepeating = false;
+        failsafe.Tick += (s, _) =>
+        {
+            s.Stop();
+            Logger.Log("Sair: Application.Exit() não encerrou — saindo à força");
+            Environment.Exit(0);
+        };
+        failsafe.Start();
     }
 
     // ---------- Win32 ----------

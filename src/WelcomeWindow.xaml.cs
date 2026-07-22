@@ -74,6 +74,17 @@ public sealed partial class WelcomeWindow : Window
         Logger.Log("Tutorial de boas-vindas aberto");
     }
 
+    /// <summary>Fecha o tutorial se ele estiver aberto (usado ao sair do app).</summary>
+    public static void CloseIfOpen()
+    {
+        var open = _instance;
+        _instance = null;
+        if (open is null) return;
+
+        try { open.Close(); }
+        catch (Exception ex) { Logger.Log($"CloseIfOpen falhou — {ex.Message}"); }
+    }
+
     // ---------- Janela ----------
 
     private void SetupWindowStyle()

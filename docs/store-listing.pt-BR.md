@@ -180,7 +180,7 @@ win+v
 | Preço | Gratuito |
 | Site do produto | `https://github.com/Zaael/colinhas` |
 | Contato de suporte | `https://github.com/Zaael/colinhas/issues` |
-| Política de privacidade | `https://zaael.github.io/colinhas/PRIVACY` *(confirmar após ativar o GitHub Pages)* |
+| Política de privacidade | `https://zaael.github.io/colinhas/PRIVACY` ✅ publicada e verificada em 22/07/2026 |
 | Direitos autorais | `© 2026 Zael. Licenciado sob a licença do repositório.` |
 | Idiomas suportados | Português (Brasil) |
 
