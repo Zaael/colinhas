@@ -81,30 +81,51 @@ public sealed partial class MainWindow : Window
             NoLeftClickDelay = true,
         };
 
+        // ATENÇÃO: os itens deste menu têm que usar Command, nunca Click.
+        //
+        // No modo padrão do H.NotifyIcon (ContextMenuMode.PopupMenu) este MenuFlyout
+        // é só um molde: a biblioteca lê os itens e monta um menu nativo do Win32,
+        // e ao clicar ela invoca o Command do item. O item XAML nunca chega a ser
+        // clicado, então handler de Click não dispara nunca — sem erro, sem aviso,
+        // o menu simplesmente não faz nada.
         var menu = new MenuFlyout();
 
-        var open = new MenuFlyoutItem { Text = "Abrir" };
-        open.Click += (_, _) => ShowAndFocus();
+        var open = new MenuFlyoutItem
+        {
+            Text = "Abrir",
+            Command = new RelayCommand(ShowAndFocus),
+        };
 
+        // Pelo mesmo motivo, o IsChecked não se inverte sozinho no clique: quem
+        // vira o estado é o próprio comando.
         var pasteToggle = new ToggleMenuFlyoutItem { Text = "Colar direto", IsChecked = Settings.PasteDirectly };
-        pasteToggle.Click += (s, _) => Settings.PasteDirectly = ((ToggleMenuFlyoutItem)s).IsChecked;
+        pasteToggle.Command = new RelayCommand(() =>
+        {
+            pasteToggle.IsChecked = !pasteToggle.IsChecked;
+            Settings.PasteDirectly = pasteToggle.IsChecked;
+            Logger.Log($"Tray: colar direto -> {pasteToggle.IsChecked}");
+        });
 
         // O estado real do startup mora no Windows (não em Settings), então o
         // ToggleMenuFlyoutItem nasce desmarcado e é sincronizado de forma assíncrona.
         var startupToggle = new ToggleMenuFlyoutItem { Text = "Iniciar com o Windows" };
-        startupToggle.Click += async (s, _) => await OnStartupToggled((ToggleMenuFlyoutItem)s);
+        startupToggle.Command = new RelayCommand(() => _ = OnStartupToggled(startupToggle));
         _ = SyncStartupToggle(startupToggle);
 
-        var tutorial = new MenuFlyoutItem { Text = "Tutorial" };
-        tutorial.Click += (_, _) => WelcomeWindow.ShowOrFocus();
-
-        var exit = new MenuFlyoutItem { Text = "Sair" };
-        exit.Click += (_, _) =>
+        var tutorial = new MenuFlyoutItem
         {
-            // Log no próprio clique: se esta linha não sair no log, o problema é o
-            // clique não chegar até aqui — não o encerramento em si.
-            Logger.Log("Tray: clique em Sair");
-            ExitApp();
+            Text = "Tutorial",
+            Command = new RelayCommand(WelcomeWindow.ShowOrFocus),
+        };
+
+        var exit = new MenuFlyoutItem
+        {
+            Text = "Sair",
+            Command = new RelayCommand(() =>
+            {
+                Logger.Log("Tray: clique em Sair");
+                ExitApp();
+            }),
         };
 
         menu.Items.Add(open);
@@ -115,7 +136,10 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
         // O usuário pode ligar/desligar o startup pelo Gerenciador de Tarefas a
-        // qualquer momento, então revalidamos toda vez que o menu abre.
+        // qualquer momento. Este Opening pode não disparar no modo de menu nativo
+        // (e a leitura do estado é assíncrona, tarde demais para o menu que já vai
+        // ser montado), então ele é só um reforço: a sincronização confiável é a
+        // da abertura do app e a de depois de cada toggle.
         menu.Opening += (_, _) => _ = SyncStartupToggle(startupToggle);
 
         _trayIcon.ContextFlyout = menu;
@@ -141,7 +165,9 @@ public sealed partial class MainWindow : Window
 
     private async Task OnStartupToggled(ToggleMenuFlyoutItem item)
     {
-        var wanted = item.IsChecked;
+        // O menu nativo não inverte o IsChecked do item XAML — o que o usuário
+        // pediu é o contrário do que está marcado agora.
+        var wanted = !item.IsChecked;
         var state = await StartupService.SetEnabledAsync(wanted);
 
         var applied = state is Windows.ApplicationModel.StartupTaskState.Enabled
