@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     private GlobalHotkeys? _hotkeys;
     private TaskbarIcon? _trayIcon;
     private bool _isExiting;
+    private System.Threading.Timer? _exitFailsafe;
 
     public MainWindow()
     {
@@ -259,16 +260,19 @@ public sealed partial class MainWindow : Window
         // app fica só na lista de processos, sem ícone e sem janela. Se meio segundo
         // depois ainda estivermos vivos, sai à força. Não há nada pendente para
         // salvar: o histórico é gravado a cada alteração.
-        var failsafe = DispatcherQueue.CreateTimer();
-        failsafe.Interval = TimeSpan.FromMilliseconds(500);
-        failsafe.IsRepeating = false;
-        failsafe.Tick += (s, _) =>
-        {
-            s.Stop();
-            Logger.Log("Sair: Application.Exit() não encerrou — saindo à força");
-            Environment.Exit(0);
-        };
-        failsafe.Start();
+        //
+        // O timer precisa ser de thread (System.Threading.Timer). A primeira versão
+        // usava DispatcherQueueTimer e nunca disparava: o Application.Exit() derruba
+        // justamente a fila de mensagens da UI de que esse timer depende — a rede de
+        // segurança morria junto com o que deveria salvar. O campo mantém a
+        // referência viva; um Timer sem referência pode ser coletado antes de tocar.
+        _exitFailsafe = new System.Threading.Timer(
+            _ =>
+            {
+                Logger.Log("Sair: Application.Exit() não encerrou — saindo à força");
+                Environment.Exit(0);
+            },
+            null, TimeSpan.FromMilliseconds(500), System.Threading.Timeout.InfiniteTimeSpan);
     }
 
     // ---------- Win32 ----------

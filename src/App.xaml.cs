@@ -82,8 +82,11 @@ public partial class App : Application
     /// <param name="args">Details about the launch request and process.</param>
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        Colinhas.Services.Logger.StartHeartbeat();
+
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        Window.Closed += (_, _) => Colinhas.Services.Logger.Log("MainWindow.Closed");
 
         if (LaunchedAtStartup())
         {
@@ -91,6 +94,7 @@ public partial class App : Application
             // usuário no login. O Ctrl+\ e o monitor de clipboard já estão ativos.
             Colinhas.Services.Logger.Log("Launch: startup task — iniciando oculto");
             ((MainWindow)Window).StartHidden();
+            Colinhas.Services.Logger.Log("Launch: StartHidden concluído");
             return;
         }
 
@@ -112,6 +116,7 @@ public partial class App : Application
         {
             var kind = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent()
                 .GetActivatedEventArgs().Kind;
+            Colinhas.Services.Logger.Log($"Launch: ActivationKind={kind}");
             return kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask;
         }
         catch (Exception ex)

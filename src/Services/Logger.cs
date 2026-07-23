@@ -21,6 +21,33 @@ public static class Logger
         catch { }
     }
 
+    /// <summary>
+    /// Marca no log que o processo continua vivo aos 5s, 15s e 60s.
+    ///
+    /// Serve para separar dois casos que parecem iguais de fora — o app "some"
+    /// sem morrer: subiu com o Windows e perdeu o ícone da bandeja, ou o Sair
+    /// tirou o ícone mas deixou o processo. Se o heartbeat continua depois de o
+    /// ícone sumir, o processo está vivo e o problema é do ícone, não um crash.
+    ///
+    /// Usa timer de thread de propósito: nesses cenários a fila da UI pode estar
+    /// parada, e um DispatcherQueueTimer simplesmente não tocaria.
+    /// </summary>
+    public static void StartHeartbeat()
+    {
+        foreach (var seconds in new[] { 5, 15, 60 })
+        {
+            var mark = seconds;
+            var timer = new System.Threading.Timer(
+                _ => Log($"heartbeat: processo vivo há {mark}s"),
+                null, TimeSpan.FromSeconds(mark), System.Threading.Timeout.InfiniteTimeSpan);
+
+            // Sem guardar a referência, o Timer pode ser coletado antes de tocar.
+            lock (Gate) Heartbeats.Add(timer);
+        }
+    }
+
+    private static readonly List<System.Threading.Timer> Heartbeats = [];
+
     public static void Log(string message)
     {
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  {message}";
