@@ -66,8 +66,17 @@
           "Iniciar com o Windows". Enabled="false" = desligado na instalação; quem
           liga é o usuário, pelo menu da bandeja (StartupService) ou pelo
           Gerenciador de Tarefas. O TaskId precisa bater com StartupService.TaskId.
+
+          EntryPoint tem que ser Windows.FullTrustApplication, igual ao que o
+          MSBuild gera no <Application> acima. Ele significa "processo Win32 de
+          confiança total: só execute o exe". Apontar para a classe gerenciada
+          (Colinhas.App) faz o Windows ativar pelo modelo UWP/CoreApplication, que
+          sobe a thread principal em STA — e o WinUI 3 exige MTA no
+          Application.Start. O app morria com 0x8001010E ("The Application Object
+          must initially be accessed from the multi-thread apartment") antes de
+          rodar qualquer linha nossa: splash de 1s, nada no log, nenhum processo.
         -->
-        <uap5:Extension Category="windows.startupTask" Executable="Colinhas.exe" EntryPoint="Colinhas.App">
+        <uap5:Extension Category="windows.startupTask" Executable="Colinhas.exe" EntryPoint="Windows.FullTrustApplication">
           <uap5:StartupTask TaskId="ColinhasStartup" Enabled="false" DisplayName="Colinhas" />
         </uap5:Extension>
       </Extensions>

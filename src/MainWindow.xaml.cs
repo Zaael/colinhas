@@ -99,7 +99,13 @@ public sealed partial class MainWindow : Window
         tutorial.Click += (_, _) => WelcomeWindow.ShowOrFocus();
 
         var exit = new MenuFlyoutItem { Text = "Sair" };
-        exit.Click += (_, _) => ExitApp();
+        exit.Click += (_, _) =>
+        {
+            // Log no próprio clique: se esta linha não sair no log, o problema é o
+            // clique não chegar até aqui — não o encerramento em si.
+            Logger.Log("Tray: clique em Sair");
+            ExitApp();
+        };
 
         menu.Items.Add(open);
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -235,7 +241,12 @@ public sealed partial class MainWindow : Window
 
     private void ExitApp()
     {
-        if (_isExiting) return;
+        if (_isExiting)
+        {
+            Logger.Log("Sair: ignorado — já estava encerrando");
+            return;
+        }
+
         _isExiting = true;
         Logger.Log("Sair: encerrando o app");
 
